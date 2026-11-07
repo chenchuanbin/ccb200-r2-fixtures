@@ -1,1 +1,1 @@
-export function amount(value) { return value || 100; }
+export function amount(value) { return value ?? 100; }
