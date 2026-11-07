@@ -1,0 +1,86 @@
+schema_version: 1
+id: truthiness-default-overrides-valid-values
+name: 真值回退覆盖有效值
+definition: 默认值逻辑使用真值判断，而业务仅将 null 或 undefined 视为缺失，导致合法的假值被默认值覆盖。
+counter_examples:
+  - 业务明确规定 0 表示未配置并应触发默认值时，使用逻辑或回退不属于此机制。
+status: active
+merged_into: null
+modules:
+  - modules/billing
+  - modules/limits
+  - test/billing-zero.test.mjs
+  - test/limits-zero.test.mjs
+defects:
+  - id: trackica:01a1b44d-023a-71bd-8e73-c36d9f03d629
+    repo: chenchuanbin/ccb200-r2-fixtures
+    fix_pr: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/1
+    base_sha: 4ee9eed44ea2a7888a98b425f3fb774c7fa5e212
+    head_sha: e1d5d22d9125274e889ab6d6c81dcc61d5a0ab60
+    trace_agreement:
+      - B
+      - C
+    trace_hash: a2bccf2db051a37722fffc1575b8c16f045a389985705f7be9df9ef1e612faea
+    closed_at: 2026-11-07T04:55:30.591688+00:00
+    occurred_at: 2026-11-07T12:38:28+08:00
+    root_cause: 金额默认值使用逻辑或运算，将有效数值 0 当作缺失值替换为 100；修复改用空值合并，仅对 null 和 undefined 回退。
+    evidence:
+      - quote: |-
+          -export function amount(value) { return value || 100; }
+          +export function amount(value) { return value ?? 100; }
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/1/files#diff-e9bbbea7e80725b657466e3c4f4f4b8f40d4bf87e97ff11c822f71ec1d454ed5
+      - quote: test('zero is a valid amount, not a missing value',()=>assert.equal(amount(0),0));
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/1/files#diff-790eec4ea64330e6416b7cbd69ceecac92f40530f64d59a3605b22469f570321
+    scope:
+      - modules/billing/amount.mjs
+      - test/billing-zero.test.mjs
+    severity: S2
+    severity_confirmed: false
+    analysis_hash: 5c6779856e7100d80b125ce956b4748ce5f232f7e30430bd2c0949125917118d
+    input_hash: 68661118aca077ae9f1b95f1a5512f72ab9d632093ea5dd137db6ade502df591
+    checkability:
+      form: lint
+      pattern: ""
+      reason: 已提供的回归测试 zero is a valid amount, not a missing value 覆盖 amount(0)，但没有执行结果。可增加结合类型和字段契约的静态检查，识别允许 0 的数值字段使用 || 设置默认值；用合法零值案例验证检出，用明确要求零值回退的案例验证误报边界。还应执行现有测试，并补查 null、undefined 和非零值行为。未提供已有 lint 规则的证据。
+      covered_by: test/billing-zero.test.mjs
+    recommendation: 先明确字段的缺失值契约，再选择默认值策略；对允许零值的数值字段，自动检查默认值逻辑，并用零值、缺失值和普通值验证行为。
+    review: null
+  - id: trackica:01a1b44d-0285-71d0-9bfa-89ae7cb2a7b8
+    repo: chenchuanbin/ccb200-r2-fixtures
+    fix_pr: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2
+    base_sha: 83b0b98233e1fac482324953512cc50ddc60a3f3
+    head_sha: 9bef69b9df19571ecaf5365a3d818a3b8a6a1541
+    trace_agreement:
+      - B
+      - C
+    trace_hash: 8f037a64cca8deb8d160a6848c2889eee47bf60d5c8c136738cc23c603c08ee3
+    closed_at: 2026-11-07T05:00:44.099909+00:00
+    occurred_at: 2026-11-07T12:38:28+08:00
+    root_cause: 配额默认值使用 || 按真值回退，将合法数值 0 当作缺失值覆盖；改为 ?? 后仅 null 和 undefined 使用默认值，直接修复该失败路径。
+    evidence:
+      - quote: |-
+          -export function quota(value) { return value || 10; }
+          +export function quota(value) { return value ?? 10; }
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2/files#diff-ebb31767bdd1e146acaf6acefadfc523c714f40fc630b653059d25315e9f2a33
+      - quote: +test('zero is a valid quota, not a missing value',()=>assert.equal(quota(0),0));
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2/files#diff-efe252cee7f571174e1948a43875fdf5cbda8d683b846f887a8fe747637e3d49
+    scope:
+      - modules/limits/quota.mjs
+      - test/limits-zero.test.mjs
+    severity: S2
+    severity_confirmed: false
+    analysis_hash: f785c999e95560baa50444d0894f1799b99fd6b925966df415618013394cabab
+    input_hash: 1072590c130f44cf5d8ce5fccc633daf0bdc96a999efb4743539b040f7ffaa25
+    checkability:
+      form: lint
+      pattern: ""
+      reason: 已有测试 zero is a valid quota, not a missing value 覆盖 quota(0)，但未提供执行结果。优先复用并运行该测试，补充 null、undefined 和普通数值边界；静态检查仅标记已明确允许假值的字段中使用 || 默认值的表达式，并用“0 明确表示未配置”的合法用例验证误报边界。
+      covered_by: test/limits-zero.test.mjs
+    recommendation: 为默认值入口明确缺失值契约，保留业务允许的假值；用合法边界值和缺失值测试约束回退行为，并仅对契约明确的字段启用静态检查。
+    review: null
+sediment:
+  form: lint
+  knowledge: docs/knowledge/gotchas/defect-truthiness-default-overrides-valid-values.md
+  evidence_hash: 192c5696a7221bb46b98f30a4d38858e0db89c938839245c258eeb292a4f820c
+history: []
+severity_max: S2
