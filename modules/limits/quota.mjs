@@ -1,1 +1,1 @@
-export function quota(value) { return value || 10; }
+export function quota(value) { return value ?? 10; }
