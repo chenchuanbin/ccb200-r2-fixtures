@@ -10,7 +10,11 @@
 
 ## Proposed
 
-无。
+### 已知坑
+
+| 知识 | 标签 | 最后审核 |
+| --- | --- | --- |
+| [真值回退覆盖有效值](gotchas/defect-truthiness-default-overrides-valid-values.md) | defect, lint | 2026-11-07 |
 
 ## Archived
 

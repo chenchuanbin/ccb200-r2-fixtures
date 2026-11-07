@@ -4,11 +4,13 @@ name: 真值回退覆盖有效值
 definition: 默认值逻辑使用真值判断，而业务仅将 null 或 undefined 视为缺失，导致合法的假值被默认值覆盖。
 counter_examples:
   - 业务明确规定 0 表示未配置并应触发默认值时，使用逻辑或回退不属于此机制。
-status: candidate
+status: active
 merged_into: null
 modules:
   - modules/billing
+  - modules/limits
   - test/billing-zero.test.mjs
+  - test/limits-zero.test.mjs
 defects:
   - id: trackica:01a1b44d-023a-71bd-8e73-c36d9f03d629
     repo: chenchuanbin/ccb200-r2-fixtures
@@ -43,6 +45,42 @@ defects:
       covered_by: test/billing-zero.test.mjs
     recommendation: 先明确字段的缺失值契约，再选择默认值策略；对允许零值的数值字段，自动检查默认值逻辑，并用零值、缺失值和普通值验证行为。
     review: null
-sediment: null
+  - id: trackica:01a1b44d-0285-71d0-9bfa-89ae7cb2a7b8
+    repo: chenchuanbin/ccb200-r2-fixtures
+    fix_pr: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2
+    base_sha: 83b0b98233e1fac482324953512cc50ddc60a3f3
+    head_sha: 9bef69b9df19571ecaf5365a3d818a3b8a6a1541
+    trace_agreement:
+      - B
+      - C
+    trace_hash: 8f037a64cca8deb8d160a6848c2889eee47bf60d5c8c136738cc23c603c08ee3
+    closed_at: 2026-11-07T05:00:44.099909+00:00
+    occurred_at: 2026-11-07T12:38:28+08:00
+    root_cause: 配额默认值使用 || 按真值回退，将合法数值 0 当作缺失值覆盖；改为 ?? 后仅 null 和 undefined 使用默认值，直接修复该失败路径。
+    evidence:
+      - quote: |-
+          -export function quota(value) { return value || 10; }
+          +export function quota(value) { return value ?? 10; }
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2/files#diff-ebb31767bdd1e146acaf6acefadfc523c714f40fc630b653059d25315e9f2a33
+      - quote: +test('zero is a valid quota, not a missing value',()=>assert.equal(quota(0),0));
+        url: https://github.com/chenchuanbin/ccb200-r2-fixtures/pull/2/files#diff-efe252cee7f571174e1948a43875fdf5cbda8d683b846f887a8fe747637e3d49
+    scope:
+      - modules/limits/quota.mjs
+      - test/limits-zero.test.mjs
+    severity: S2
+    severity_confirmed: false
+    analysis_hash: f785c999e95560baa50444d0894f1799b99fd6b925966df415618013394cabab
+    input_hash: 1072590c130f44cf5d8ce5fccc633daf0bdc96a999efb4743539b040f7ffaa25
+    checkability:
+      form: lint
+      pattern: ""
+      reason: 已有测试 zero is a valid quota, not a missing value 覆盖 quota(0)，但未提供执行结果。优先复用并运行该测试，补充 null、undefined 和普通数值边界；静态检查仅标记已明确允许假值的字段中使用 || 默认值的表达式，并用“0 明确表示未配置”的合法用例验证误报边界。
+      covered_by: test/limits-zero.test.mjs
+    recommendation: 为默认值入口明确缺失值契约，保留业务允许的假值；用合法边界值和缺失值测试约束回退行为，并仅对契约明确的字段启用静态检查。
+    review: null
+sediment:
+  form: lint
+  knowledge: docs/knowledge/gotchas/defect-truthiness-default-overrides-valid-values.md
+  evidence_hash: 192c5696a7221bb46b98f30a4d38858e0db89c938839245c258eeb292a4f820c
 history: []
 severity_max: S2
